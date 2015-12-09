@@ -1,4 +1,10 @@
-import pyvw
+import sys
+
+sys.path.append("~/git/vowpal_wabbit")
+
+import vowpal_wabbit.python.pyvw
+
+#import pyvw
 import math
 
 valid_labels = {'n.act': 0,
