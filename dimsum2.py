@@ -1,8 +1,6 @@
-import sys
-
-sys.path.append("~/git/vowpal_wabbit")
-
-import vowpal_wabbit.python.pyvw
+# For the following line to work, add the root folder to the PYTHON path variable
+# export PYTHONPATH=$HOME/git/:$PYTHONPATH
+import vowpal_wabbit.python.pyvw as pyvw
 
 #import pyvw
 import math
