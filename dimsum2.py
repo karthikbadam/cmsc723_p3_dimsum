@@ -55,19 +55,22 @@ class BIO:
             raise TypeError
         self.bio = bio
         self.label = label   # the label will only be needed for supersenses
+        if label != None and len(label) < 2:
+            self.label = None
+
         if label != None and len(label) > 2:
-            self.numeric_label = (1 - 1)*len(valid_labels.keys()) + valid_labels[label]
+            self.numeric_label = valid_labels[label]
             if self.bio == 'B':
-                self.numeric_label = (2 - 1)*len(valid_labels.keys()) + valid_labels[label]
+                self.numeric_label = len(valid_labels.keys()) + valid_labels[label]
             elif self.bio == 'I':
-                self.numeric_label = (3 - 1)*len(valid_labels.keys()) + valid_labels[label]
+                self.numeric_label = 2*len(valid_labels.keys()) + valid_labels[label]
 
         else:
-            self.numeric_label = 3*len(valid_labels.keys()) + 1
+            self.numeric_label = 3 * len(valid_labels.keys()) + 0
             if self.bio == 'B':
-                self.numeric_label = 3*len(valid_labels.keys()) + 2
+                self.numeric_label = 3*len(valid_labels.keys()) + 1
             elif self.bio == 'I':
-                self.numeric_label = 3*len(valid_labels.keys()) + 3
+                self.numeric_label = 3*len(valid_labels.keys()) + 2
 
     # a.can_follow(b) returns true if:
     #    a is O and b is I or O or
@@ -85,12 +88,14 @@ class BIO:
         for next_label in ['B', 'I', 'O']:
             next_BIO_class= BIO(next_label)
             if next_BIO_class.can_follow(self):
+                for ssense in valid_labels.keys():
+                    valid.append(BIO(next_BIO_class.bio, ssense))
                 valid.append(next_BIO_class)
         return valid
 
 
     # produce a human-readable string
-    def __str__( self): return self.bio #return 'O' if self.bio == 'O' else (self.bio + '-' + self.label)
+    def __str__( self): return self.bio if self.label == None else (self.bio + "-" + self.label)
     def __repr__(self): return self.__str__()
 
     # compute equality
@@ -114,11 +119,11 @@ def numeric_label_to_BIO(num):
         bioObject = BIO('I', valid_labels_rev[num%len(valid_labels.keys())])
     elif index == 4:
         index2 = num%len(valid_labels.keys())
-        if index2 == 1:
+        if index2 == 0:
             bioObject = BIO('O')
-        elif index2 == 2:
+        elif index2 == 1:
             bioObject = BIO('B')
-        elif index2 == 3:
+        elif index2 == 2:
             bioObject = BIO('I')
 
     return bioObject
@@ -133,8 +138,8 @@ def numeric_label_to_BIO(num):
 # instance, truth is I but prev is neither I nor B
 def compute_reference(prev, truth):
     if truth.bio=='I' :
-        if BIO(truth.bio) not in prev.valid_next():
-            truth = BIO('O', prev.label)
+        if truth not in prev.valid_next():
+            truth = BIO('O', truth.label)
 
     return [ truth ]  # TODO
 
@@ -185,6 +190,7 @@ class MWE(pyvw.SearchTask):
 
                 # first, compute the numeric labels for all valid reference actions
                 refs  = [ bio.numeric_label for bio in compute_reference(prev, label) ]
+
                 # next, because some actions are invalid based on the
                 # previous decision, we need to compute a list of
                 # valid actions available at this point
@@ -213,12 +219,13 @@ class MWE(pyvw.SearchTask):
                         true_positives[pred]=1.
                     else:
                         true_positives[pred]+=1
+
                 # map that prediction back to a BIO label
-                this  = numeric_label_to_BIO(pred)
+                this = numeric_label_to_BIO(pred)
                 # append it to output
                 output.append(this)
                 # update the 'previous' prediction to the current
-                prev  = this
+                prev = this
 
         Precision={}
         Recall={}
@@ -243,7 +250,6 @@ class MWE(pyvw.SearchTask):
             F_Score_mean=0
 
         self.sch.loss(1-F_Score_mean)
-
         # return the list of predictions as BIO labels
         return output
 
@@ -258,33 +264,42 @@ class MWE(pyvw.SearchTask):
             #'g': ["1_"+word+"--1_"+ppword+": -2", "1_"+word+"-0_"+pword+": -1", "1_"+word+"-2_"+nword+": 1", "1_"+word+"-3_"+nnword+": 2"]
         }
 
-        if pword+"_"+word in wordnetNounMWE:
-            ex['g'] = ["0_"+pword+"_1_"+word+":nounmwe"]
-        else:
-            ex['g'] = ["0_"+pword+"_1_"+word+":notnounmwe"]
-
-        if pword+"_"+word in wordnetVerbMWE:
-            ex['g'] = ["0_"+pword+"_1_"+word+":verbmwe"]
-        else:
-            ex['g'] = ["0_"+pword+"_1_"+word+":notverbmwe"]
-
+        # wordnet features
+        # if pword+"_"+word in wordnetNounMWE:
+        #     ex['g'] = ["0_"+pword+"_1_"+word+":nounmwe"]
+        # else:
+        #     ex['g'] = ["0_"+pword+"_1_"+word+":notnounmwe"]
+        #
+        # if pword+"_"+word in wordnetVerbMWE:
+        #     ex['g'] = ["0_"+pword+"_1_"+word+":verbmwe"]
+        # else:
+        #     ex['g'] = ["0_"+pword+"_1_"+word+":notverbmwe"]
+        #
         # if word+"_"+nword in wordnetNounMWE:
         #     ex['g'] = ["1_"+word+"_2_"+nword+":nounmwe"]
         #
         # if word+"_"+nword in wordnetVerbMWE:
         #     ex['g'] = ["1_"+word+"_2_"+nword+":verbmwe"]
-        #
-        # if plemma+"_"+lemma in wordnetNounMWE:
-        #     ex['h'] = ["0_"+plemma+"_1_"+lemma+":nounmwe"]
-        #
-        # if plemma+"_"+lemma in wordnetVerbMWE:
-        #     ex['h'] = ["0_"+plemma+"_1_"+lemma+":verbmwe"]
-        #
-        # if lemma+"_"+nlemma in wordnetNounMWE:
-        #     ex['h'] = ["1_"+lemma+"_2_"+nlemma+":nounmwe"]
-        #
-        # if lemma+"_"+nlemma in wordnetVerbMWE:
-        #     ex['h'] = ["1_"+lemma+"_2_"+nlemma+":verbmwe"]
+
+        if plemma+"_"+lemma in wordnetNounMWE:
+            ex['h'] = ["0_"+plemma+"_1_"+lemma+":nounmwe"]
+        else:
+            ex['h'] = ["0_"+plemma+"_1_"+lemma+":notnounmwe"]
+
+        if plemma+"_"+lemma in wordnetVerbMWE:
+            ex['h'] = ["0_"+plemma+"_1_"+lemma+":verbmwe"]
+        else:
+            ex['h'] = ["0_"+plemma+"_1_"+lemma+":notverbmwe"]
+
+        if lemma+"_"+nlemma in wordnetNounMWE:
+            ex['h'] = ["1_"+lemma+"_2_"+nlemma+":nounmwe"]
+        else:
+            ex['h'] = ["1_"+lemma+"_2_"+nlemma+":notnounmwe"]
+
+        if lemma+"_"+nlemma in wordnetVerbMWE:
+            ex['h'] = ["1_"+lemma+"_2_"+nlemma+":verbmwe"]
+        else:
+            ex['h'] = ["1_"+lemma+"_2_"+nlemma+":notverbmwe"]
 
         return self.example(ex)
 
@@ -300,7 +315,7 @@ def make_data(BIO,filename):
             sentence = []
         else:
             [offset,word,lemma,pos,mwe,parent,strength,ssense,sid] = l.split('\t')
-            sentence.append((BIO(mwe, ssense),word,lemma,pos, ssense))
+            sentence.append((BIO(mwe,ssense),word,lemma,pos, ssense))
     return data
 
 
@@ -337,7 +352,7 @@ if __name__ == "__main__":
     hamming_loss, total_words = 0,0
     for n in range(N, len(train_data)):
         truth = [label for label,word,lemma,pos,ssense in train_data[n]]
-        pred  = sequenceLabeler.predict( [(BIO('O'),word,lemma,pos,ssense) for label,word,lemma,pos,ssense in train_data[n]] )
+        pred  = sequenceLabeler.predict([(BIO('O'),word,lemma,pos,ssense) for label,word,lemma,pos,ssense in train_data[n]] )
         for i,t in enumerate(truth):
             if t != pred[i]:
                 hamming_loss += 1
