@@ -157,6 +157,7 @@ def compute_reference(prev, truth):
 
 # NEW
 import json
+import sys
 ss_dict_list = {'NOUN': json.load(open('labeled_noun.txt', 'r')),
                 'VERB': json.load(open('labeled_verb.txt', 'r'))
                 }
@@ -288,6 +289,7 @@ class MWE(pyvw.SearchTask):
 
         self.sch.loss(1 - F_Score_mean)
         # return the list of predictions as BIO labels
+
         return output
 
     def make_example(self, word, lemma, pos, pword, plemma, ppos, nword, nlemma, npos, ppword, pplemma, pppos, nnword, nnlemma, nnpos, supersense):
@@ -302,8 +304,7 @@ class MWE(pyvw.SearchTask):
             #'g': ["1_"+word+"--1_"+ppword+": -2", "1_"+word+"-0_"+pword+": -1", "1_"+word+"-2_"+nword+": 1", "1_"+word+"-3_"+nnword+": 2"]
         }
 
-        if supersense != "none":
-            ex['g'] = ["supersense_" + supersense]
+        ex['g'] = ["supersense_" + str(supersense) + "_" + word]
 
         # wordnet features
         # if pword+"_"+word in wordnetNounMWE:
@@ -365,7 +366,11 @@ def make_data(BIO, filename):
 wordnetNounMWE = open('nouns_mwes_in_wordnet3.1.txt').read().splitlines()
 wordnetVerbMWE = open('verbs_mwes_in_wordnet3.1.txt').read().splitlines()
 
+import time
+
 if __name__ == "__main__":
+
+    start_time = time.time()
     # input/output files
     trainfilename = 'dimsum16.p3.train.contiguous'
     testfilename = 'dimsum16.p3.test.contiguous'
@@ -412,3 +417,6 @@ if __name__ == "__main__":
     # make predictions for current sentence
     # pred  = sequenceLabeler.predict( [(BIO('O'),word,lemma,pos) for
     # label,word,lemma,pos in train_data[n]] )
+    end_time = time.time()
+
+    print "Time taken:", end_time - start_time, "seconds"
